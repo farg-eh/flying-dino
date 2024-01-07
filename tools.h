@@ -42,7 +42,7 @@ struct Point //  a point to represent x and y coordiantes
         return sqrt(pow(other.x - x, 2) + pow(other.y - y, 2));
     }
 
-    double angle_between(Point other)  // measures the angle between our points and another point
+    double angle_between(Point other)  // measures the angle between our point and another point
     {
         int dx = other.x - x;
         int dy = other.y - y;
@@ -82,9 +82,27 @@ struct Point //  a point to represent x and y coordiantes
         glEnd();
     }
 
+    bool morphTo(Point p, double change_speed=20)
+    {
+        Point diff = Point(p.x - x, p.y - y);
+        double max_diff = (abs(diff.x) >= abs(diff.y))? abs(diff.x) : abs(diff.y);
+        if(max_diff == 0) return false;
+        double number_of_steps = max_diff/(change_speed*dt);
+        if(number_of_steps < 1)
+        {
+            x = p.x;
+            y = p.y;
+            return false;
+        }
+        Point change_ratio(diff.x/max_diff, diff.y/max_diff);
+        x += change_ratio.x * change_speed * dt;
+        y += change_ratio.y * change_speed * dt;
+        return true; // if the point is not fully morphed we return true
+    }
+
     std::string str()  // returns a string object representing the points value
     {
-        return std::string("(" + std::to_string(x) + ", " + std::to_string(y) + ")");
+        return std::string("(" + std::to_string(int(x)) + ", " + std::to_string(int(y)) + ")");
     }
 
     // operators
@@ -579,6 +597,7 @@ class Button
 {
 public:
     // attributes
+    bool clickable = true;
     Point center;
     double width;
     double height;
@@ -598,15 +617,15 @@ public:
     // text
     double text_scale = 0.4;
     int text_width = 3;
-    double text_color_speed = 135;
+    double text_color_speed = 115;
 
     // other settings
     double corner_radius = 23;
     int outline_width = 5;
 
     // function pointer
-    void(*func)() = [](){std::cout<<"no func\n";};
-
+    // void(*func)() = [](){std::cout<<"no func\n";};   // this approach wasnt very flexable
+    std::function<void()> func = [this](){std::cout<< "the"<< name <<" button doesnt have a func yet\n";}; // default func
 
     // constructors
     Button(Point center, double width, double height, const std::string &name) : center(center),  width(width), height(height), name(name){}
@@ -618,12 +637,12 @@ public:
     {
         // button body
         btn_color.set();
-        tools.draw_round_rect(center, width, height, corner_radius);
+        tools.draw_round_rect(center, rect.width, rect.height, corner_radius);
 
         // button outline
         curr_text_color.set();
         glLineWidth(outline_width);
-        tools.draw_round_rect(center, width, height, corner_radius, true);
+        tools.draw_round_rect(center, rect.width, rect.height, corner_radius, true);
 
         // draw text
         Text(name, center, curr_text_color, text_scale, text_width).draw();
@@ -633,18 +652,67 @@ public:
     void update(Mouse &mouse)
     {
         // update text color
-        if(rect.collide_point(mouse.pos))  // if the mouse if hovering on the buttons rect
+        if(rect.collide_point(mouse.pos) && clickable)  // if the mouse if hovering on the buttons rect and the buttons is clickable
             curr_text_color.morphTo(text_hover_color, text_color_speed);
         else
             curr_text_color.morphTo(text_color, text_color_speed);
 
         // check clicks
 
-        if (mouse.button_press(rect))
+        if (clickable && mouse.button_press(rect))
         {
             func();
         }
 
+    }
+
+};
+
+class ExitMark
+{
+public:
+    // position
+    Point pos;
+    // function
+    std::function<void()> func = [](){std::cout<<"exit mark has no functionality\n";};
+    // rect
+    double size = 20;
+    Rect rect = Rect(pos, size, size, 'e');
+    // colors
+    Color iColor = Color(215,107,113); // inital color
+    Color currColor = iColor; // current color
+    Color hColor = Color(245,22,70); // hover color
+
+    // constructor
+    ExitMark(Point pos, std::function<void()> func) : pos(pos), func(func){}
+
+
+
+    void draw()
+    {
+        // settings
+        currColor.set();
+        glLineWidth(7);
+        glPointSize(7);
+        // drawing the points
+        rect.topleft.draw();
+        rect.topright.draw();
+        rect.bottomleft.draw();
+        rect.bottomright.draw();
+        // connecting them to create an X sign
+        rect.topleft.draw_line(rect.bottomright);
+        rect.bottomleft.draw_line(rect.topright);
+    }
+
+    void update(Mouse &mouse)
+    {
+        if(rect.collide_point(mouse.pos))
+            currColor.morphTo(hColor, 100);
+        else
+            currColor.morphTo(iColor, 100);
+
+        if(mouse.button_press(rect))
+            func();
     }
 
 };
